@@ -3104,7 +3104,7 @@ if (
 
 else {
 
-  finalSimilarity -= 0.35;
+  finalSimilarity -= 0.22;
 }
           if (finalSimilarity > 0.45){
 
