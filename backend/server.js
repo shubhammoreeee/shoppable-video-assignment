@@ -2915,6 +2915,72 @@ app.get(
 );
 
 /* --------------------------------
+   FETCH DETECTIONS
+-------------------------------- */
+
+app.get(
+  "/videos/:videoId/detections",
+  (req, res) => {
+    try {
+      const { videoId } = req.params;
+      const detectionPath = `./detections/${videoId}.json`;
+      if (fs.existsSync(detectionPath)) {
+        const data = JSON.parse(
+          fs.readFileSync(detectionPath, "utf-8")
+        );
+        // Map to get unique timestamps that have non-empty objects list
+        const timestamps = data
+          .filter(
+            (frame) =>
+              frame.objects &&
+              frame.objects.length > 0
+          )
+          .map((frame) => frame.timestamp);
+        return res.json(timestamps);
+      }
+      return res
+        .status(404)
+        .json({ error: "Detections not found" });
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ error: "Failed to load detections" });
+    }
+  }
+);
+
+/* --------------------------------
+   FETCH PRODUCTS
+-------------------------------- */
+
+app.get(
+  "/videos/:videoId/products",
+  (req, res) => {
+    try {
+      const { videoId } = req.params;
+      const productsPath = `./products/${videoId}.json`;
+      if (fs.existsSync(productsPath)) {
+        const data = JSON.parse(
+          fs.readFileSync(productsPath, "utf-8")
+        );
+        // Strip heavy embeddings
+        const products = data.map(({ embedding, ...p }) => p);
+        return res.json(products);
+      }
+      return res
+        .status(404)
+        .json({ error: "Products not found" });
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ error: "Failed to load products" });
+    }
+  }
+);
+
+/* --------------------------------
    PAUSE API
 -------------------------------- */
 
