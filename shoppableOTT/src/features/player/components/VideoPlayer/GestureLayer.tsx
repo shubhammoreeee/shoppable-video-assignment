@@ -18,6 +18,8 @@ type Props = {
   onDoubleTapRight: () => void;
   onLongPressStart?: () => void;
   onLongPressEnd?: () => void;
+  onSwipeUpdate?: (side: "left" | "right", delta: number) => void;
+  onSwipeEnd?: (side: "left" | "right") => void;
   children?: React.ReactNode;
 };
 
@@ -29,6 +31,8 @@ const GestureLayer = memo(
     onDoubleTapRight,
     onLongPressStart,
     onLongPressEnd,
+    onSwipeUpdate,
+    onSwipeEnd,
     children,
   }: Props) => {
     const lastTapTime = useRef(0);
@@ -37,6 +41,7 @@ const GestureLayer = memo(
 
     const leftOpacity = useSharedValue(0);
     const rightOpacity = useSharedValue(0);
+    const swipeStartY = useSharedValue(0);
 
     const flashSeek = (side: "left" | "right") => {
       const sv = side === "left" ? leftOpacity : rightOpacity;
@@ -97,7 +102,27 @@ const GestureLayer = memo(
         if (onLongPressEnd) runOnJS(onLongPressEnd)();
       });
 
-    const composed = Gesture.Exclusive(longPress, tap);
+    // Vertical Pan Gesture for volume/brightness
+    const swipeSide = useSharedValue<"left" | "right">("left");
+    const verticalPan = Gesture.Pan()
+      .onBegin((e) => {
+        swipeStartY.value = e.y;
+        swipeSide.value = e.x < width / 2 ? "left" : "right";
+      })
+      .onUpdate((e) => {
+        const deltaY = swipeStartY.value - e.y;
+        const normalizedDelta = deltaY / 150; // 150 pixels for full range
+        if (onSwipeUpdate) {
+          runOnJS(onSwipeUpdate)(swipeSide.value, normalizedDelta);
+        }
+      })
+      .onEnd(() => {
+        if (onSwipeEnd) {
+          runOnJS(onSwipeEnd)(swipeSide.value);
+        }
+      });
+
+    const composed = Gesture.Exclusive(longPress, tap, verticalPan);
 
     const leftStyle = useAnimatedStyle(() => ({
       opacity: leftOpacity.value,
@@ -140,7 +165,9 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(255, 122, 0, 0.16)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 122, 0, 0.35)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 8,

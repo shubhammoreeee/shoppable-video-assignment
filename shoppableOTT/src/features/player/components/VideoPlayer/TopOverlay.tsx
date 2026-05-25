@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   IconBack,
   IconClose,
+  IconFullscreenExit,
   IconPiP,
   IconCast,
   IconSubtitles,
@@ -54,16 +55,31 @@ const TopOverlay = memo(
         <Animated.View style={fadeStyle} pointerEvents="box-none">
           {isLandscape ? (
             <View style={styles.landscapeHeader}>
-              <Text style={TYPO.titleLandscape} numberOfLines={1}>
-                {title}
-              </Text>
+              {/* Back arrow — exits player entirely */}
               <Pressable
                 onPress={onClose}
                 hitSlop={HIT_SLOP}
                 style={styles.iconBtn}
-                accessibilityLabel="Close"
+                accessibilityLabel="Back"
               >
-                <IconClose size={26} />
+                <IconBack size={24} />
+              </Pressable>
+
+              <Text
+                style={[TYPO.titleLandscape, styles.landscapeTitle]}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+
+              {/* Minimize — landscape → portrait */}
+              <Pressable
+                onPress={onToggleOrientation}
+                hitSlop={HIT_SLOP}
+                style={styles.iconBtn}
+                accessibilityLabel="Minimize to portrait"
+              >
+                <IconFullscreenExit size={22} />
               </Pressable>
             </View>
           ) : (
@@ -143,7 +159,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 8,
+  },
+  landscapeTitle: {
+    flex: 1,
+    textAlign: "center",
+    marginHorizontal: 6,
   },
   iconRow: {
     flexDirection: "row",

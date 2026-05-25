@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,11 @@ import {
   Pressable,
   Linking,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ProductType } from "../../types/player.types";
 
@@ -18,45 +23,88 @@ type Props = {
 
 const XRaySidePanel = memo(({ sceneProducts, onClose }: Props) => {
   const insets = useSafeAreaInsets();
+  const translateX = useSharedValue(320);
+
+  useEffect(() => {
+    translateX.value = withSpring(0, {
+      damping: 18,
+      stiffness: 200,
+      mass: 0.8,
+    });
+  }, [translateX]);
+
+  const panelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   return (
-    <View style={[styles.panel, { paddingTop: Math.max(insets.top, 8) }]}>
-      <View style={styles.handle} />
-      <View style={styles.badgeRow}>
-        <View style={styles.xrayBadge}>
-          <Text style={styles.xrayBadgeText}>X-Ray</Text>
+    <Animated.View
+      style={[
+        styles.panel,
+        panelStyle,
+        { paddingTop: Math.max(insets.top, 10) },
+      ]}
+    >
+      {/* Header Row */}
+      <View style={styles.header}>
+        <View style={styles.shopBadge}>
+          <Text style={styles.shopBadgeText}>Shop Here</Text>
         </View>
-        <Pressable onPress={onClose} hitSlop={12}>
-          <Text style={styles.collapse}>✕</Text>
+        <Pressable
+          onPress={onClose}
+          hitSlop={14}
+          style={styles.closeBtn}
+          accessibilityLabel="Close shop panel"
+        >
+          <Text style={styles.closeBtnText}>✕</Text>
         </Pressable>
       </View>
 
-      <Text style={styles.title}>Shop This Scene</Text>
+      <Text style={styles.sectionTitle}>Shop This Scene</Text>
 
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 20,
+          paddingHorizontal: 12,
+        }}
       >
+        {sceneProducts.length === 0 && (
+          <Text style={styles.emptyText}>
+            No shoppable products in this scene.
+          </Text>
+        )}
+
         {sceneProducts.map((p) => (
-          <View key={String(p.id)} style={styles.productRow}>
-            <Image source={{ uri: p.image }} style={styles.productImg} />
+          <View key={String(p.id)} style={styles.productCard}>
+            {/* Image – left */}
+            <Image
+              source={{ uri: p.image }}
+              style={styles.productImg}
+              resizeMode="cover"
+            />
+
+            {/* Meta – center */}
             <View style={styles.productMeta}>
               <Text style={styles.productName} numberOfLines={2}>
                 {p.name}
               </Text>
               <Text style={styles.productPrice}>₹ {p.price}</Text>
-              <Pressable
-                style={styles.buyBtn}
-                onPress={() => p.buyLink && Linking.openURL(p.buyLink)}
-              >
-                <Text style={styles.buyText}>Buy Now</Text>
-              </Pressable>
             </View>
+
+            {/* CTA – right */}
+            <Pressable
+              style={styles.buyBtn}
+              onPress={() => p.buyLink && Linking.openURL(p.buyLink)}
+              accessibilityLabel={`Buy ${p.name}`}
+            >
+              <Text style={styles.buyText}>Buy{"\n"}Now</Text>
+            </Pressable>
           </View>
         ))}
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 });
 
@@ -67,60 +115,77 @@ export default XRaySidePanel;
 const styles = StyleSheet.create({
   panel: {
     flex: 1,
-    backgroundColor: "#0A0A0A",
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "#0D0D0D",
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255,122,0,0.25)",
     maxWidth: "42%",
     minWidth: 280,
   },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  badgeRow: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  xrayBadge: {
-    backgroundColor: "#FFFFFF",
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 4,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+    marginBottom: 10,
   },
-  xrayBadgeText: {
-    color: "#000000",
-    fontSize: 13,
-    fontWeight: "800",
+  shopBadge: {
+    backgroundColor: "#FF7A00",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
-  collapse: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 22,
-    fontWeight: "300",
-  },
-  title: {
+  shopBadgeText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.3,
+  },
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeBtnText: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 13,
     fontWeight: "700",
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    lineHeight: 15,
+    textAlign: "center",
+  },
+  sectionTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    letterSpacing: 0.2,
   },
   scroll: {
     flex: 1,
     paddingHorizontal: 16,
   },
-  productRow: {
+  emptyText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 28,
+  },
+  productCard: {
     flexDirection: "row",
     backgroundColor: "rgba(255,255,255,0.06)",
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
   },
   productImg: {
     width: 80,
@@ -137,6 +202,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+    lineHeight: 17,
   },
   productPrice: {
     color: "rgba(255,255,255,0.65)",

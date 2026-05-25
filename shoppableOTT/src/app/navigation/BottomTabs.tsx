@@ -36,8 +36,8 @@ const BottomTabs = () => {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: "#FFFFFF",
-        tabBarInactiveTintColor: "#888888",
+        tabBarActiveTintColor: '#FF7A00',
+        tabBarInactiveTintColor: '#AAAAAA',
         tabBarLabelStyle: styles.tabLabel,
         sceneStyle: styles.scene,
         lazy: true,
@@ -68,20 +68,26 @@ export default BottomTabs;
 const styles = StyleSheet.create({
   scene: {
     flex: 1,
-    backgroundColor: "#0F0F0F",
+    backgroundColor: '#FFFFFF',
   },
   tabBar: {
-    backgroundColor: "#111111",
-    borderTopWidth: 0,
-    height: Platform.OS === "ios" ? 88 : 65,
-    paddingBottom: Platform.OS === "ios" ? 24 : 8,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#EBEBEB',
+    height: Platform.OS === 'ios' ? 88 : 65,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 10,
   },
   tabLabel: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   tabIcon: {
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: '700',
   },
 });

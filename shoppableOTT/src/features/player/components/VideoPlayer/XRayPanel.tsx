@@ -115,7 +115,7 @@ const XRayPanel = memo(
               style={styles.pillCenter}
             >
               <Animated.View style={[styles.xrayPill, pillAnimStyle]}>
-                <Text style={TYPO.xrayPill}>X-Ray</Text>
+                <Text style={TYPO.xrayPill}>Shop Here</Text>
               </Animated.View>
             </Pressable>
           </Animated.View>
@@ -129,7 +129,7 @@ const XRayPanel = memo(
               style={styles.landscapePillWrap}
             >
               <Animated.View style={[styles.xrayPill, pillAnimStyle]}>
-                <Text style={TYPO.xrayPill}>X-Ray</Text>
+                <Text style={TYPO.xrayPill}>🛍 Shop Here</Text>
               </Animated.View>
             </Pressable>
             <View style={styles.actorRowInline}>
@@ -177,7 +177,7 @@ const SheetModal = memo(
         >
           <View style={styles.sheetHandle} />
           <View style={styles.sheetBadge}>
-            <Text style={styles.sheetBadgeText}>X-Ray</Text>
+            <Text style={styles.sheetBadgeText}>Shop Here</Text>
           </View>
 
           <Text style={styles.shopTitle}>Shop This Scene</Text>
@@ -249,12 +249,12 @@ const styles = StyleSheet.create({
   },
   pillCenter: { alignSelf: "center" },
   xrayPill: {
-    backgroundColor: "rgba(18,18,18,0.85)",
+    backgroundColor: "rgba(20,10,0,0.82)",
     paddingVertical: 8,
-    paddingHorizontal: 28,
+    paddingHorizontal: 22,
     borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,122,0,0.55)",
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
@@ -282,16 +282,17 @@ const styles = StyleSheet.create({
   },
   sheetBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 4,
+    backgroundColor: "#FF7A00",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
     marginBottom: 10,
   },
   sheetBadgeText: {
-    color: "#000",
-    fontWeight: "800",
+    color: "#FFF",
+    fontWeight: "900",
     fontSize: 13,
+    letterSpacing: 0.3,
   },
   shopTitle: {
     color: "#FFFFFF",

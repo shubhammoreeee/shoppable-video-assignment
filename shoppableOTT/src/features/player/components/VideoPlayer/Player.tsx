@@ -13,6 +13,8 @@ import {
   ActivityIndicator,
   Pressable,
   LayoutChangeEvent,
+  Dimensions,
+  Text,
 } from "react-native";
 import Video, {
   OnLoadData,
@@ -20,7 +22,12 @@ import Video, {
   OnBufferData,
   VideoRef,
 } from "react-native-video";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   IconFullscreen,
   IconFullscreenExit,
@@ -49,11 +56,14 @@ import {
 } from "../../data/mockPlayerData";
 import { PLAYBACK_SPEEDS, SEEK_SKIP_SECONDS } from "./constants";
 import { COLORS } from "./styles/playerTheme";
+import { WatchHistory } from "../../../home/services/watchHistory";
 import type {
   VideoPlayerProps,
   VideoPlayerHandle,
   SceneMarker,
 } from "../../types/player.types";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
   (
@@ -90,6 +100,25 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const [longPress2x, setLongPress2x] = useState(false);
     const [xraySheetOpen, setXraySheetOpen] = useState(false);
     const [xrayDismissed, setXrayDismissed] = useState(false);
+    const [landscapePanelOpen, setLandscapePanelOpen] = useState(false);
+    const [landscapeDismissed, setLandscapeDismissed] = useState(false);
+
+    // Gestures HUD & Volume/Brightness states
+    const [isPip, setIsPip] = useState(false);
+    const [brightness, setBrightness] = useState(1.0);
+    const [volume, setVolume] = useState(1.0);
+    const [showBrightnessHUD, setShowBrightnessHUD] = useState(false);
+    const [showVolumeHUD, setShowVolumeHUD] = useState(false);
+
+    const activeBrightnessRef = useRef(1.0);
+    const activeVolumeRef = useRef(1.0);
+    const hudTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Reanimated variables for PiP position & dragging
+    const pipX = useSharedValue(SCREEN_WIDTH - 190);
+    const pipY = useSharedValue(SCREEN_HEIGHT - 220);
+    const startX = useSharedValue(SCREEN_WIDTH - 190);
+    const startY = useSharedValue(SCREEN_HEIGHT - 220);
 
     const {
       isFullscreen,
@@ -99,8 +128,7 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     } = usePlayerOrientation(onFullscreenChange);
 
     const hasSceneShop = sceneProducts.length > 0;
-    const showLandscapeRail =
-      isLandscape && paused && hasSceneShop && !xrayDismissed;
+    const showLandscapeRail = isLandscape && landscapePanelOpen;
     const controlsMinimal = showLandscapeRail;
 
     const {
@@ -117,27 +145,56 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       xraySheetOpen: xraySheetOpen || showLandscapeRail,
     });
 
+    // Portrait only: auto-open sheet on pause
     useEffect(() => {
       if (!paused) {
         setXraySheetOpen(false);
         setXrayDismissed(false);
-      } else if (paused && hasSceneShop && !xrayDismissed) {
+      } else if (!isLandscape && paused && hasSceneShop && !xrayDismissed) {
         showControls();
-        if (!isLandscape) {
-          setXraySheetOpen(true);
-        }
+        setXraySheetOpen(true);
       }
     }, [paused, hasSceneShop, isLandscape, xrayDismissed, showControls]);
 
+    // Landscape only: close panel on play, auto-open when paused + products ready
+    useEffect(() => {
+      if (!paused) {
+        setLandscapePanelOpen(false);
+        setLandscapeDismissed(false);
+      }
+    }, [paused]);
+
+    useEffect(() => {
+      if (isLandscape && paused && hasSceneShop && !landscapeDismissed) {
+        setLandscapePanelOpen(true);
+        showControls();
+      }
+    }, [isLandscape, paused, hasSceneShop, landscapeDismissed, showControls]);
+
     const openXRay = useCallback(() => {
-      setXrayDismissed(false);
-      setXraySheetOpen(true);
+      if (!isLandscape) {
+        setXrayDismissed(false);
+        setXraySheetOpen(true);
+        clearHideTimer();
+        return;
+      }
+      setLandscapeDismissed(false);
+      setLandscapePanelOpen(true);
       clearHideTimer();
-    }, [clearHideTimer]);
+      if (!paused) {
+        onPause?.();
+      }
+    }, [isLandscape, paused, clearHideTimer, onPause]);
 
     const closeXRay = useCallback(() => {
       setXrayDismissed(true);
       setXraySheetOpen(false);
+      scheduleAutoHide();
+    }, [scheduleAutoHide]);
+
+    const dismissLandscapePanel = useCallback(() => {
+      setLandscapeDismissed(true);
+      setLandscapePanelOpen(false);
       scheduleAutoHide();
     }, [scheduleAutoHide]);
 
@@ -182,14 +239,18 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const overlayStyle = useAnimatedStyle(() => ({
       opacity: controlsOpacity.value,
     }));
-
     const handleProgress = useCallback(
       (data: OnProgressData) => {
         if (isSeeking) return;
         setDisplayPosition(data.currentTime);
         setCurrentTime(data.currentTime);
+        if (videoDuration > 0) {
+          const safeId = videoId ?? "default";
+          const imageUri = `https://picsum.photos/seed/${safeId}/400/250`;
+          WatchHistory.saveProgress(safeId, videoUrl, title ?? DEFAULT_MOVIE_TITLE, data.currentTime, videoDuration, imageUri);
+        }
       },
-      [isSeeking, setCurrentTime],
+      [isSeeking, setCurrentTime, videoId, videoUrl, title, videoDuration],
     );
 
     const handleLoad = useCallback(
@@ -205,43 +266,22 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       setIsBuffering(data.isBuffering);
     }, []);
 
-    const seekTo = useCallback(
-      (time: number) => {
-        const clamped = Math.max(0, Math.min(videoDuration, time));
-        videoRef.current?.seek(clamped);
-        setDisplayPosition(clamped);
-        setCurrentTime(clamped);
-        showControls();
-      },
-      [videoDuration, setCurrentTime, showControls],
-    );
-
-    const seekBy = useCallback(
-      (delta: number) => {
-        seekTo(displayPosition + delta);
-      },
-      [displayPosition, seekTo],
-    );
-
     const handlePlayPause = useCallback(() => {
       if (paused) {
-        setXraySheetOpen(false);
-        setXrayDismissed(true);
-        onPlay();
+        onPlay?.();
       } else {
-        onPause();
+        onPause?.();
       }
-      scheduleAutoHide();
-    }, [paused, onPlay, onPause, scheduleAutoHide]);
+    }, [paused, onPlay, onPause]);
 
-    const dismissXRay = useCallback(() => {
-      closeXRay();
-    }, [closeXRay]);
+    const handleSingleTap = useCallback(() => {
+      toggleControls();
+    }, [toggleControls]);
 
     const handleSeekStart = useCallback(() => {
       setIsSeeking(true);
       wasPlayingBeforeScrub.current = !paused;
-      if (!paused) onPause();
+      onPause?.();
       clearHideTimer();
     }, [paused, onPause, clearHideTimer]);
 
@@ -251,270 +291,432 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
 
     const handleSeekComplete = useCallback(
       (value: number) => {
-        seekTo(value);
         setIsSeeking(false);
-        if (wasPlayingBeforeScrub.current) onPlay();
+        videoRef.current?.seek(value);
+        setDisplayPosition(value);
+        setCurrentTime(value);
+        if (wasPlayingBeforeScrub.current) {
+          onPlay?.();
+        }
         scheduleAutoHide();
       },
-      [seekTo, onPlay, scheduleAutoHide],
+      [onPlay, setCurrentTime, scheduleAutoHide],
     );
 
-    const handleClose = useCallback(() => {
-      if (isFullscreen) {
-        exitFullscreen();
-      } else {
-        onClose?.();
-      }
-    }, [isFullscreen, exitFullscreen, onClose]);
-
-    const handleSingleTap = useCallback(() => {
-      if (settingsOpen) {
-        setSettingsOpen(false);
-        setSpeedMenuOpen(false);
-        return;
-      }
-      toggleControls();
-    }, [settingsOpen, toggleControls]);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        toggleFullscreen,
-        seekTo,
-      }),
-      [toggleFullscreen, seekTo],
+    const seekBy = useCallback(
+      (seconds: number) => {
+        const target = Math.min(
+          videoDuration,
+          Math.max(0, displayPosition + seconds),
+        );
+        videoRef.current?.seek(target);
+        setDisplayPosition(target);
+        setCurrentTime(target);
+        showControls();
+      },
+      [displayPosition, videoDuration, setCurrentTime, showControls],
     );
 
-    const onLayout = (e: LayoutChangeEvent) => {
+    const handleLayout = (e: LayoutChangeEvent) => {
       setContainerWidth(e.nativeEvent.layout.width);
     };
 
+    useImperativeHandle(ref, () => ({
+      toggleFullscreen,
+      seekTo: (time: number) => {
+        videoRef.current?.seek(time);
+        setDisplayPosition(time);
+        setCurrentTime(time);
+      },
+      seek: (time: number) => {
+        videoRef.current?.seek(time);
+        setDisplayPosition(time);
+        setCurrentTime(time);
+      },
+    }));
+
+
+    // Swipe volume/brightness gesture callbacks
+    const handleSwipeUpdate = useCallback((side: "left" | "right", delta: number) => {
+      if (hudTimeoutRef.current) {
+        clearTimeout(hudTimeoutRef.current);
+      }
+      if (side === "left") {
+        setShowBrightnessHUD(true);
+        setShowVolumeHUD(false);
+        const newVal = Math.min(1.0, Math.max(0.0, activeBrightnessRef.current + delta * 0.4));
+        setBrightness(newVal);
+      } else {
+        setShowVolumeHUD(true);
+        setShowBrightnessHUD(false);
+        const newVal = Math.min(1.0, Math.max(0.0, activeVolumeRef.current + delta * 0.4));
+        setVolume(newVal);
+      }
+    }, []);
+
+    const handleSwipeEnd = useCallback((side: "left" | "right") => {
+      if (side === "left") {
+        activeBrightnessRef.current = brightness;
+      } else {
+        activeVolumeRef.current = volume;
+      }
+      hudTimeoutRef.current = setTimeout(() => {
+        setShowBrightnessHUD(false);
+        setShowVolumeHUD(false);
+      }, 1000);
+    }, [brightness, volume]);
+
+    const handleClose = useCallback(() => {
+      onClose?.();
+    }, [onClose]);
+
+    // PiP pan gestures using Reanimated
+    const pipPanGesture = Gesture.Pan()
+      .enabled(isPip)
+      .onStart(() => {
+        startX.value = pipX.value;
+        startY.value = pipY.value;
+      })
+      .onUpdate((e) => {
+        pipX.value = startX.value + e.translationX;
+        pipY.value = startY.value + e.translationY;
+      });
+
+    // PiP Container animated styles
+    const animatedContainerStyle = useAnimatedStyle(() => {
+      if (!isPip) {
+        return {
+          width: "100%",
+          height: "100%",
+          borderRadius: 0,
+          borderWidth: 0,
+          position: "relative",
+          top: 0,
+          left: 0,
+        };
+      }
+      return {
+        width: 170,
+        height: 100,
+        borderRadius: 14,
+        borderWidth: 1.2,
+        borderColor: "rgba(255, 122, 0, 0.6)",
+        backgroundColor: COLORS.black,
+        position: "absolute",
+        top: pipY.value,
+        left: pipX.value,
+        zIndex: 9999,
+        overflow: "hidden",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+        elevation: 6,
+      };
+    });
+
     return (
-      <View style={styles.root} onLayout={onLayout}>
-        <View
-          style={[
-            styles.mainRow,
-            showLandscapeRail && styles.mainRowSplit,
-          ]}
+      <GestureDetector gesture={pipPanGesture}>
+        <Animated.View
+          style={[styles.root, animatedContainerStyle]}
+          onLayout={handleLayout}
         >
-        <View
-          style={[
-            styles.videoStage,
-            showLandscapeRail && styles.videoStageSplit,
-          ]}
-        >
-          <Video
-            ref={videoRef}
-            source={{ uri: videoUrl }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="contain"
-            paused={paused}
-            rate={longPress2x ? 2 : playbackRate}
-            onProgress={handleProgress}
-            onLoad={handleLoad}
-            onBuffer={handleBuffer}
-            onEnd={() => {
-              onEnd?.();
-              showControls();
-            }}
-            repeat={false}
-            playInBackground={false}
-            ignoreSilentSwitch="ignore"
+          {/* Simulated Brightness Dark Overlay */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: "black", opacity: 1 - brightness, zIndex: 1 },
+            ]}
+            pointerEvents="none"
           />
 
-          {containerWidth > 0 && (
-            <GestureLayer
-              width={containerWidth}
-              onSingleTap={handleSingleTap}
-              onDoubleTapLeft={() => seekBy(-SEEK_SKIP_SECONDS)}
-              onDoubleTapRight={() => seekBy(SEEK_SKIP_SECONDS)}
-              onLongPressStart={() => setLongPress2x(true)}
-              onLongPressEnd={() => setLongPress2x(false)}
-            />
-          )}
+          {/* PiP Mini Player — premium controls */}
+          {isPip && (
+            <Pressable
+              style={[StyleSheet.absoluteFill, { zIndex: 99999 }]}
+              onPress={handlePlayPause}
+            >
+              {/* Center: play/pause indicator (non-interactive, pointer events off) */}
+              <View style={styles.pipCenterRow} pointerEvents="none">
+                <View style={styles.pipPlayCircle}>
+                  <Text style={styles.pipPlayText}>{paused ? "▶" : "||"}</Text>
+                </View>
+              </View>
 
-          {isBuffering && (
-            <View style={styles.loader} pointerEvents="none">
-              <ActivityIndicator size="large" color={COLORS.white} />
-            </View>
-          )}
-
-          {longPress2x && (
-            <View style={styles.speedBadge} pointerEvents="none">
-              <Animated.Text style={styles.speedText}>2×</Animated.Text>
-            </View>
-          )}
-
-          {!isLandscape && (
-            <Animated.View style={[styles.videoFullscreenBtn, overlayStyle]}>
+              {/* Top-left: maximize back to full */}
               <Pressable
-                onPress={toggleFullscreen}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={styles.pipMaxBtn}
+                onPress={() => setIsPip(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <IconFullscreen size={22} />
+                <Text style={styles.pipIconText1}>⤢</Text>
               </Pressable>
+
+              {/* Top-right: close PiP */}
+              <Pressable
+                style={styles.pipCloseAbsBtn}
+                onPress={handleClose}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.pipIconText}>✕</Text>
+              </Pressable>
+            </Pressable>
+          )}
+
+          <View
+            style={[
+              styles.mainRow,
+              showLandscapeRail && styles.mainRowSplit,
+            ]}
+            pointerEvents={isPip ? "none" : "auto"}
+          >
+            <View
+              style={[
+                styles.videoStage,
+                showLandscapeRail && styles.videoStageSplit,
+              ]}
+            >
+              <Video
+                ref={videoRef}
+                source={{ uri: videoUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="contain"
+                paused={paused}
+                rate={longPress2x ? 2 : playbackRate}
+                onProgress={handleProgress}
+                onLoad={handleLoad}
+                onBuffer={handleBuffer}
+                onEnd={() => {
+                  onEnd?.();
+                  showControls();
+                }}
+                repeat={false}
+                playInBackground={true}
+                ignoreSilentSwitch="ignore"
+                volume={volume}
+              />
+
+              {containerWidth > 0 && !isPip && (
+                <GestureLayer
+                  width={containerWidth}
+                  onSingleTap={handleSingleTap}
+                  onDoubleTapLeft={() => seekBy(-SEEK_SKIP_SECONDS)}
+                  onDoubleTapRight={() => seekBy(SEEK_SKIP_SECONDS)}
+                  onLongPressStart={() => setLongPress2x(true)}
+                  onLongPressEnd={() => setLongPress2x(false)}
+                  onSwipeUpdate={handleSwipeUpdate}
+                  onSwipeEnd={handleSwipeEnd}
+                />
+              )}
+
+              {isBuffering && !isPip && (
+                <View style={styles.loader} pointerEvents="none">
+                  <ActivityIndicator size="large" color={COLORS.white} />
+                </View>
+              )}
+
+              {longPress2x && !isPip && (
+                <View style={styles.speedBadge} pointerEvents="none">
+                  <Animated.Text style={styles.speedText}>2×</Animated.Text>
+                </View>
+              )}
+
+              {!isLandscape && !isPip && (
+                <Animated.View style={[styles.videoFullscreenBtn, overlayStyle]}>
+                  <Pressable
+                    onPress={toggleFullscreen}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <IconFullscreen size={22} />
+                  </Pressable>
+                </Animated.View>
+              )}
+
+              {/* Side HUD Indicator Overlays for swipes */}
+              {showBrightnessHUD && !isPip && (
+                <View style={[styles.hudCard, styles.hudLeft]}>
+                  <Text style={styles.hudIcon}>☀️</Text>
+                  <View style={styles.hudProgressBg}>
+                    <View style={[styles.hudProgressFill, { height: `${brightness * 100}%` }]} />
+                  </View>
+                </View>
+              )}
+
+              {showVolumeHUD && !isPip && (
+                <View style={[styles.hudCard, styles.hudRight]}>
+                  <Text style={styles.hudIcon}>🔊</Text>
+                  <View style={styles.hudProgressBg}>
+                    <View style={[styles.hudProgressFill, { height: `${volume * 100}%` }]} />
+                  </View>
+                </View>
+              )}
+
+              {!isPip && (
+                <TopOverlay
+                  title={title}
+                  isLandscape={isLandscape}
+                  controlsOpacity={controlsOpacity}
+                  onClose={handleClose}
+                  onToggleOrientation={toggleFullscreen}
+                  onPiP={() => {
+                    setIsPip(true);
+                    exitFullscreen();
+                  }}
+                  onSettings={() => {
+                    setSettingsOpen((v) => !v);
+                    setSpeedMenuOpen(false);
+                    showControls();
+                  }}
+                />
+              )}
+
+              {isLandscape && !isPip && (
+                <>
+                  <Controls
+                    paused={paused}
+                    controlsOpacity={controlsOpacity}
+                    onPlayPause={handlePlayPause}
+                    onSeekBack={() => seekBy(-SEEK_SKIP_SECONDS)}
+                    onSeekForward={() => seekBy(SEEK_SKIP_SECONDS)}
+                    minimal={controlsMinimal}
+                  />
+                  <Animated.View
+                    style={[styles.landscapeBottom, overlayStyle]}
+                    pointerEvents="box-none"
+                  >
+                    <SeekBar
+                      duration={videoDuration}
+                      position={displayPosition}
+                      markers={markers}
+                      isLandscape
+                      onSeekStart={handleSeekStart}
+                      onSeekChange={handleSeekChange}
+                      onSeekComplete={handleSeekComplete}
+                    />
+                    <View style={styles.landscapeBar}>
+                      {/* <Pressable
+                        onPress={toggleFullscreen}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        style={styles.landscapeIconBtn}
+                      >
+                        <IconFullscreenExit size={26} />
+                      </Pressable> */}
+                      <View style={styles.landscapeBarSpacer} />
+                      <View style={styles.landscapeRightIcons}>
+                        <Pressable style={styles.landscapeIconBtn}>
+                          <IconCast size={24} />
+                        </Pressable>
+                        <Pressable style={styles.landscapeIconBtn}>
+                          <IconSubtitles size={24} />
+                        </Pressable>
+                        <Pressable
+                          style={styles.landscapeIconBtn}
+                          onPress={() => {
+                            setSettingsOpen((v) => !v);
+                            setSpeedMenuOpen(false);
+                            showControls();
+                          }}
+                        >
+                          <IconSettings size={24} />
+                        </Pressable>
+                      </View>
+                    </View>
+                    {activeActor && (
+                      <XRayPanel
+                        actor={activeActor}
+                        sceneProducts={sceneProducts}
+                        isLandscape={true}
+                        controlsOpacity={controlsOpacity}
+                        sheetOpen={false}
+                        onOpenSheet={openXRay}
+                        onCloseSheet={closeXRay}
+                      />
+                    )}
+                  </Animated.View>
+                </>
+              )}
+            </View>
+
+            {showLandscapeRail && !isPip && (
+              <XRaySidePanel
+                sceneProducts={sceneProducts}
+                onClose={dismissLandscapePanel}
+              />
+            )}
+          </View>
+
+          {!isLandscape && !isPip && (
+            <Animated.View style={[styles.portraitChrome, overlayStyle]}>
+              <SeekBar
+                duration={videoDuration}
+                position={displayPosition}
+                markers={markers}
+                isLandscape={false}
+                onSeekStart={handleSeekStart}
+                onSeekChange={handleSeekChange}
+                onSeekComplete={handleSeekComplete}
+              />
+
+              <View style={styles.portraitControls}>
+                <Controls
+                  variant="inline"
+                  paused={paused}
+                  controlsOpacity={controlsOpacity}
+                  onPlayPause={handlePlayPause}
+                  onSeekBack={() => seekBy(-SEEK_SKIP_SECONDS)}
+                  onSeekForward={() => seekBy(SEEK_SKIP_SECONDS)}
+                />
+              </View>
+
+              <XRayPanel
+                actor={activeActor}
+                sceneProducts={sceneProducts}
+                isLandscape={false}
+                controlsOpacity={controlsOpacity}
+                sheetOpen={xraySheetOpen}
+                onOpenSheet={openXRay}
+                onCloseSheet={closeXRay}
+              />
             </Animated.View>
           )}
 
-          <TopOverlay
-            title={title}
-            isLandscape={isLandscape}
-            controlsOpacity={controlsOpacity}
-            onClose={handleClose}
-            onToggleOrientation={toggleFullscreen}
-            onSettings={() => {
-              setSettingsOpen((v) => !v);
-              setSpeedMenuOpen(false);
-              showControls();
-            }}
-          />
-
-          {isLandscape && (
-            <>
-              <Controls
-                paused={paused}
-                controlsOpacity={controlsOpacity}
-                onPlayPause={handlePlayPause}
-                onSeekBack={() => seekBy(-SEEK_SKIP_SECONDS)}
-                onSeekForward={() => seekBy(SEEK_SKIP_SECONDS)}
-                minimal={controlsMinimal}
-              />
-              <Animated.View
-                style={[styles.landscapeBottom, overlayStyle]}
-                pointerEvents="box-none"
-              >
-                  <SeekBar
-                    duration={videoDuration}
-                    position={displayPosition}
-                    markers={markers}
-                    isLandscape
-                    onSeekStart={handleSeekStart}
-                    onSeekChange={handleSeekChange}
-                    onSeekComplete={handleSeekComplete}
-                  />
-                  <View style={styles.landscapeBar}>
-                    <Pressable
-                      onPress={toggleFullscreen}
-                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      style={styles.landscapeIconBtn}
-                    >
-                      <IconFullscreenExit size={26} />
-                    </Pressable>
-                    <View style={styles.landscapeBarSpacer} />
-                    <View style={styles.landscapeRightIcons}>
-                      <Pressable style={styles.landscapeIconBtn}>
-                        <IconCast size={24} />
-                      </Pressable>
-                      <Pressable style={styles.landscapeIconBtn}>
-                        <IconSubtitles size={24} />
-                      </Pressable>
-                      <Pressable
-                        style={styles.landscapeIconBtn}
-                        onPress={() => {
-                          setSettingsOpen((v) => !v);
-                          setSpeedMenuOpen(false);
-                          showControls();
-                        }}
-                      >
-                        <IconSettings size={24} />
-                      </Pressable>
-                    </View>
-                  </View>
-                  {!showLandscapeRail && (
-                    <XRayPanel
-                      actor={activeActor}
-                      sceneProducts={sceneProducts}
-                      isLandscape
-                      controlsOpacity={controlsOpacity}
-                      sheetOpen={xraySheetOpen}
-                      onOpenSheet={openXRay}
-                      onCloseSheet={closeXRay}
-                    />
-                  )}
-                </Animated.View>
-            </>
-          )}
-        </View>
-
-        {showLandscapeRail && (
-          <XRaySidePanel
-            sceneProducts={sceneProducts}
-            onClose={dismissXRay}
-          />
-        )}
-        </View>
-
-        {!isLandscape && (
-          <Animated.View style={[styles.portraitChrome, overlayStyle]}>
-            <SeekBar
-              duration={videoDuration}
-              position={displayPosition}
-              markers={markers}
-              isLandscape={false}
-              onSeekStart={handleSeekStart}
-              onSeekChange={handleSeekChange}
-              onSeekComplete={handleSeekComplete}
-            />
-
-            <View style={styles.portraitControls}>
-              <Controls
-                variant="inline"
-                paused={paused}
-                controlsOpacity={controlsOpacity}
-                onPlayPause={handlePlayPause}
-                onSeekBack={() => seekBy(-SEEK_SKIP_SECONDS)}
-                onSeekForward={() => seekBy(SEEK_SKIP_SECONDS)}
-              />
-            </View>
-
-            <XRayPanel
-              actor={activeActor}
-              sceneProducts={sceneProducts}
-              isLandscape={false}
-              controlsOpacity={controlsOpacity}
-              sheetOpen={xraySheetOpen}
-              onOpenSheet={openXRay}
-              onCloseSheet={closeXRay}
-            />
-          </Animated.View>
-        )}
-
-        {settingsOpen && (
-          <Animated.View style={[styles.settingsMenu, overlayStyle]}>
-            {!speedMenuOpen ? (
+          {/* Speed & Settings overlay */}
+          {settingsOpen && !isPip && (
+            <Animated.View style={styles.settingsMenu}>
               <Pressable
                 style={styles.settingRow}
-                onPress={() => setSpeedMenuOpen(true)}
+                onPress={() => setSpeedMenuOpen((v) => !v)}
               >
-                <Animated.Text style={styles.settingText}>
-                  Playback speed
-                </Animated.Text>
+                <Animated.Text style={styles.settingText}>Playback Speed</Animated.Text>
                 <Animated.Text style={styles.settingValue}>
                   {playbackRate}×
                 </Animated.Text>
               </Pressable>
-            ) : (
-              PLAYBACK_SPEEDS.map((speed) => (
-                <Pressable
-                  key={speed}
-                  style={[
-                    styles.settingRow,
-                    playbackRate === speed && styles.settingActive,
-                  ]}
-                  onPress={() => {
-                    setPlaybackRate(speed);
-                    setSpeedMenuOpen(false);
-                    setSettingsOpen(false);
-                    scheduleAutoHide();
-                  }}
-                >
-                  <Animated.Text style={styles.settingText}>{speed}×</Animated.Text>
-                </Pressable>
-              ))
-            )}
-          </Animated.View>
-        )}
-      </View>
+              {speedMenuOpen && (
+                <View style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
+                  {PLAYBACK_SPEEDS.map((speed) => (
+                    <Pressable
+                      key={speed}
+                      style={[
+                        styles.settingRow,
+                        playbackRate === speed && styles.settingActive,
+                      ]}
+                      onPress={() => {
+                        setPlaybackRate(speed);
+                        setSpeedMenuOpen(false);
+                        setSettingsOpen(false);
+                        scheduleAutoHide();
+                      }}
+                    >
+                      <Animated.Text style={styles.settingText}>{speed}×</Animated.Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </Animated.View>
+          )}
+        </Animated.View>
+      </GestureDetector>
     );
   },
 );
@@ -525,7 +727,6 @@ export default Player;
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
     backgroundColor: COLORS.black,
   },
   mainRow: {
@@ -642,5 +843,110 @@ const styles = StyleSheet.create({
   settingValue: {
     color: "rgba(255,255,255,0.6)",
     fontSize: 14,
+  },
+  pipCenterRow: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pipPlayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    // backgroundColor: "rgba(255,122,0,0.88)",
+    // borderWidth: 1.5,
+    borderColor: "rgba(255,200,100,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    // shadowColor: "#FF7A00",
+    // shadowOffset: { width: 0, height: 0 },
+    // shadowOpacity: 0.6,
+    // shadowRadius: 8,
+    // elevation: 6,
+  },
+  pipPlayText: {
+    color: "#FFF",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginLeft: 2,
+  },
+  pipMaxBtn: {
+    position: "absolute",
+    top: 5,
+    left: 5,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pipCloseAbsBtn: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(180,0,0,0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,80,80,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pipIconText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "bold",
+    textAlign: "center",
+    lineHeight: 12,
+  },
+  pipIconText1: {
+    color: "#FFF",
+    fontSize: 22,
+    // fontWeight: "bold",
+    textAlign: "center",
+    // lineHeight: 12,
+    marginTop: -12,
+  },
+  hudCard: {
+    position: "absolute",
+    top: "32%",
+    width: 38,
+    height: 120,
+    backgroundColor: "rgba(24, 24, 24, 0.85)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 122, 0, 0.3)",
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    zIndex: 99,
+  },
+  hudLeft: {
+    left: 20,
+  },
+  hudRight: {
+    right: 20,
+  },
+  hudIcon: {
+    fontSize: 14,
+    color: "#FFF",
+    marginBottom: 8,
+  },
+  hudProgressBg: {
+    width: 5,
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 2.5,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  hudProgressFill: {
+    width: "100%",
+    backgroundColor: "#FF7A00",
+    borderRadius: 2.5,
   },
 });

@@ -147,15 +147,26 @@ export const IconPlay = memo(({ size = 32, color = WHITE }: SizeProps) => (
   <View
     style={{
       width: 0,
-      height: 0,
-      marginLeft: size * 0.15,
-      borderStyle: "solid",
-      borderLeftWidth: size * 0.55,
-      borderTopWidth: size * 0.34,
-      borderBottomWidth: size * 0.34,
-      borderLeftColor: color,
-      borderTopColor: "transparent",
-      borderBottomColor: "transparent",
+  height: 0,
+  marginLeft: size * 0.15,
+  borderStyle: "solid",
+
+  borderLeftWidth: size * 0.55,
+  borderTopWidth: size * 0.34,
+  borderBottomWidth: size * 0.34,
+
+  borderLeftColor: color,
+  borderTopColor: "transparent",
+  borderBottomColor: "transparent",
+
+  shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 2,
+  },
+  shadowOpacity: 0.9,
+  shadowRadius: 6,
+  elevation: 8,
     }}
   />
 ));
@@ -163,8 +174,22 @@ IconPlay.displayName = "IconPlay";
 
 export const IconPause = memo(({ size = 32, color = WHITE }: SizeProps) => (
   <View style={{ flexDirection: "row", gap: size * 0.14 }}>
-    <View style={{ width: size * 0.16, height: size * 0.55, backgroundColor: color, borderRadius: 1 }} />
-    <View style={{ width: size * 0.16, height: size * 0.55, backgroundColor: color, borderRadius: 1 }} />
+    <View style={{ width: size * 0.16, height: size * 0.55, backgroundColor: color, borderRadius: 1,shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 2,
+  },
+  shadowOpacity: 0.9,
+  shadowRadius: 6,
+  elevation: 8, }} />
+    <View style={{ width: size * 0.16, height: size * 0.55, backgroundColor: color, borderRadius: 1,shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 2,
+  },
+  shadowOpacity: 0.9,
+  shadowRadius: 6,
+  elevation: 8, }} />
   </View>
 ));
 IconPause.displayName = "IconPause";
@@ -232,31 +257,74 @@ export const IconFullscreen = memo(({ size = 22, color = WHITE }: SizeProps) => 
 ));
 IconFullscreen.displayName = "IconFullscreen";
 
-export const IconFullscreenExit = memo(({ size = 22, color = WHITE }: SizeProps) => (
-  <View style={{ width: size, height: size }}>
-    {[
-      { top: 2, left: 2 },
-      { top: 2, right: 2 },
-      { bottom: 2, left: 2 },
-      { bottom: 2, right: 2 },
-    ].map((pos, i) => (
+export const IconFullscreenExit = memo(
+  ({ size = 22, color = WHITE }: SizeProps) => (
+    <View
+      style={{
+        width: size,
+        height: size,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      {/* Top Left */}
       <View
-        key={i}
         style={{
           position: "absolute",
-          ...pos,
-          width: size * 0.3,
-          height: size * 0.3,
+          top: 2,
+          left: 2,
+          width: size * 0.22,
+          height: size * 0.22,
+          borderBottomWidth: 2,
+          borderRightWidth: 2,
           borderColor: color,
-          borderTopWidth: pos.top !== undefined && pos.top < 10 ? 2 : 0,
-          borderBottomWidth: pos.bottom !== undefined ? 2 : 0,
-          borderLeftWidth: pos.left !== undefined && pos.left < 10 ? 2 : 0,
-          borderRightWidth: pos.right !== undefined ? 2 : 0,
         }}
       />
-    ))}
-  </View>
-));
+
+      {/* Top Right */}
+      <View
+        style={{
+          position: "absolute",
+          top: 2,
+          right: 2,
+          width: size * 0.22,
+          height: size * 0.22,
+          borderBottomWidth: 2,
+          borderLeftWidth: 2,
+          borderColor: color,
+        }}
+      />
+
+      {/* Bottom Left */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: 2,
+          left: 2,
+          width: size * 0.22,
+          height: size * 0.22,
+          borderTopWidth: 2,
+          borderRightWidth: 2,
+          borderColor: color,
+        }}
+      />
+
+      {/* Bottom Right */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: 2,
+          right: 2,
+          width: size * 0.22,
+          height: size * 0.22,
+          borderTopWidth: 2,
+          borderLeftWidth: 2,
+          borderColor: color,
+        }}
+      />
+    </View>
+  )
+);
 IconFullscreenExit.displayName = "IconFullscreenExit";
 
 export const IconOrientation = memo(({ size = 22, color = WHITE }: SizeProps) => (

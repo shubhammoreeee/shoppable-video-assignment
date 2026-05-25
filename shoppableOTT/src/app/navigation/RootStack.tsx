@@ -23,7 +23,8 @@ const RootStack = () => {
         getComponent={loadPlayerScreen}
         options={{
           animation: "fade",
-          contentStyle: { flex: 1, backgroundColor: "#000" },
+          presentation: "transparentModal",
+          contentStyle: { flex: 1, backgroundColor: "transparent" },
         }}
       />
     </Stack.Navigator>

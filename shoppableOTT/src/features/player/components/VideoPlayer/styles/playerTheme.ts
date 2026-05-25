@@ -3,15 +3,17 @@ import { Platform, StyleSheet } from "react-native";
 export const COLORS = {
   black: "#000000",
   white: "#FFFFFF",
-  trackPlayed: "#FFFFFF",
-  trackRemaining: "rgba(255,255,255,0.28)",
-  markerYellow: "#FFEB3B",
+  orange: "#FF7A00",
+  orangeLight: "rgba(255,122,0,0.15)",
+  trackPlayed: "#FF7A00",
+  trackRemaining: "rgba(255,255,255,0.25)",
+  markerYellow: "rgba(255,122,0,0.9)",
   glass: "rgba(0,0,0,0.45)",
   glassLight: "rgba(255,255,255,0.12)",
   glassBorder: "rgba(255,255,255,0.18)",
   xrayPillBg: "rgba(18,18,18,0.85)",
   overlayScrim: "rgba(0,0,0,0.55)",
-  accent: "#00A8E1",
+  accent: "#FF7A00",
 };
 
 export const TYPO = {

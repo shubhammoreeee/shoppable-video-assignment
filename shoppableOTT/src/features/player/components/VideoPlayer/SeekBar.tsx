@@ -21,7 +21,7 @@ type Props = {
   onSeekComplete: (value: number) => void;
 };
 
-const TRACK_HEIGHT = 3;
+const TRACK_HEIGHT = 4;
 const THUMB_SIZE = 14;
 const MARKER_SIZE = 6;
 
@@ -137,17 +137,6 @@ const SeekBar = memo(
           <View style={styles.trackContainer} onLayout={onTrackLayout}>
             <View style={styles.trackBg} />
             <Animated.View style={[styles.trackFill, fillStyle]} />
-            {markers.map((m) => {
-              const pct = (m.time / safeDuration) * 100;
-              if (pct < 0 || pct > 100) return null;
-              return (
-                <View
-                  key={m.id}
-                  style={[styles.marker, { left: `${pct}%` }]}
-                  pointerEvents="none"
-                />
-              );
-            })}
             <Animated.View style={[styles.thumb, thumbStyle]} />
           </View>
         </GestureDetector>
@@ -226,10 +215,10 @@ const styles = StyleSheet.create({
     top: "50%",
     marginTop: -THUMB_SIZE / 2,
     zIndex: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.35,
-    shadowRadius: 2,
-    elevation: 3,
+    shadowColor: "#FF7A00",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });

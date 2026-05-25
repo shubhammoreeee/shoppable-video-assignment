@@ -52,7 +52,7 @@ const PlayerScreen = () => {
   }, [navigation]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="box-none">
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <Player
         videoUrl={videoUrl}
@@ -76,6 +76,6 @@ export default PlayerScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "transparent",
   },
 });
