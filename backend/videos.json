@@ -4,5 +4,11 @@
     "videoPath": "uploads\\1779536589745.mp4",
     "detectionFile": "detections/1779536589745.json",
     "productFile": "products/1779536589745.json"
+  },
+  {
+    "id": "1779790051143",
+    "videoPath": "uploads\\1779790051143.mp4",
+    "detectionFile": "detections/1779790051143.json",
+    "productFile": "products/1779790051143.json"
   }
 ]

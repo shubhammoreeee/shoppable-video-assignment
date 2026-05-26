@@ -295,18 +295,18 @@ const HomeScreen = () => {
                           <View style={styles.heroBadge}>
                             <Text style={styles.heroBadgeText}>{item.genre ?? 'FITNESS'}</Text>
                           </View>
-                          {item.rating ? (
+                          {/* {item.rating ? (
                             <View style={styles.heroRatingBadge}>
                               <Text style={styles.heroRatingText}>⭐ {item.rating}</Text>
                             </View>
-                          ) : null}
+                          ) : null} */}
                         </View>
 
                         {/* Cinematic content overlay */}
                         <View style={styles.heroContent}>
                           <Text style={styles.heroSubtitle}>{item.subtitle}</Text>
                           <Text style={styles.heroTitle}>{item.title}</Text>
-                          <Text style={styles.heroDesc} numberOfLines={2}>{item.description}</Text>
+                          {/* <Text style={styles.heroDesc} numberOfLines={2}>{item.description}</Text> */}
 
                           <View style={styles.heroBtnRow}>
                             <View style={styles.watchBtn}>
@@ -418,9 +418,8 @@ const styles = StyleSheet.create({
     color: '#FF7A00',
   },
   pillsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   pill: {
     paddingHorizontal: 18,
@@ -440,7 +439,7 @@ const styles = StyleSheet.create({
   },
   heroSlideWrap: {
     width: SCREEN_WIDTH,
-    height: 264,
+    height: 230,
     paddingHorizontal: 16,
   },
   heroSlide: {
@@ -557,7 +556,7 @@ const styles = StyleSheet.create({
   },
   paginationDots: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 60,
     alignSelf: 'center',
     marginRight: 55,
     width: '100%',
@@ -578,7 +577,7 @@ const styles = StyleSheet.create({
     width: 6,
     backgroundColor: 'rgba(255,255,255,0.45)',
   },
-  section: { paddingLeft: 20, marginBottom: 26 },
+  section: { paddingLeft: 20, marginBottom: 10,marginTop: -30,},
   feedCardContainer: {
     paddingHorizontal: 20,
   },

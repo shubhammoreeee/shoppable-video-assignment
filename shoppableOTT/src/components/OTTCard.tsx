@@ -72,7 +72,7 @@ const OTTCard = memo(({
 
           {isShoppable && (
             <View style={styles.shoppableBadge}>
-              <Text style={styles.shoppableBadgeText}>🛍 SHOP</Text>
+              <Text style={styles.shoppableBadgeText}>SHOP</Text>
             </View>
           )}
 
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF7A00',
   },
   content: {
-    padding: 16,
+    padding: 12,
     backgroundColor: '#F5F5F5',
   },
   categoryBadge: {
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     alignSelf: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 5,
   },
   categoryText: {
     color: '#FF7A00',
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#111111',
     lineHeight: 24,
-    marginBottom: 6,
+    marginBottom: 3,
   },
   description: {
     fontSize: 13,

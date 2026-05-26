@@ -129,7 +129,7 @@ const XRayPanel = memo(
               style={styles.landscapePillWrap}
             >
               <Animated.View style={[styles.xrayPill, pillAnimStyle]}>
-                <Text style={TYPO.xrayPill}>🛍 Shop Here</Text>
+                <Text style={TYPO.xrayPill}>Shop Here</Text>
               </Animated.View>
             </Pressable>
             <View style={styles.actorRowInline}>

@@ -1,22 +1,35 @@
-import { BASE_URL }
-from "../../../shared/constants/config";
+import { BASE_URL } from "../../../shared/constants/config";
 
-export const uploadVideoApi =
-  async (
-    formData: FormData
-  ) => {
+export const uploadVideoApi = (
+  formData: FormData,
+  onProgress?: (percent: number) => void,
+): Promise<unknown> =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE_URL}/create-video`);
 
-    const response =
-      await fetch(
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress && event.total > 0) {
+        const percent = Math.min(
+          100,
+          Math.max(0, Math.round((event.loaded / event.total) * 100)),
+        );
+        onProgress(percent);
+      }
+    };
 
-        `${BASE_URL}/create-video`,
-
-        {
-          method: "POST",
-
-          body: formData,
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(xhr.responseText ? JSON.parse(xhr.responseText) : {});
+        } catch {
+          resolve({});
         }
-      );
+        return;
+      }
+      reject(new Error(`Upload failed (${xhr.status})`));
+    };
 
-    return response.json();
-};
+    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.send(formData);
+  });

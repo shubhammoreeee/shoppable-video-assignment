@@ -98,10 +98,8 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
     const [playbackRate, setPlaybackRate] = useState(1);
     const [longPress2x, setLongPress2x] = useState(false);
-    const [xraySheetOpen, setXraySheetOpen] = useState(false);
+    const [xrayOpen, setXrayOpen] = useState(false);
     const [xrayDismissed, setXrayDismissed] = useState(false);
-    const [landscapePanelOpen, setLandscapePanelOpen] = useState(false);
-    const [landscapeDismissed, setLandscapeDismissed] = useState(false);
 
     // Gestures HUD & Volume/Brightness states
     const [isPip, setIsPip] = useState(false);
@@ -127,9 +125,9 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       exitFullscreen,
     } = usePlayerOrientation(onFullscreenChange);
 
-    const hasSceneShop = sceneProducts.length > 0;
-    const showLandscapeRail = isLandscape && landscapePanelOpen;
-    const controlsMinimal = showLandscapeRail;
+    const showPortraitXRay = !isLandscape && xrayOpen;
+    const showLandscapeXRay = isLandscape && xrayOpen;
+    const controlsMinimal = showLandscapeXRay;
 
     const {
       controlsOpacity,
@@ -142,59 +140,36 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       paused,
       isSeeking,
       settingsOpen,
-      xraySheetOpen: xraySheetOpen || showLandscapeRail,
+      xraySheetOpen: xrayOpen,
     });
 
-    // Portrait only: auto-open sheet on pause
+    /** Pause → open X-Ray. Play → close X-Ray. */
     useEffect(() => {
       if (!paused) {
-        setXraySheetOpen(false);
+        setXrayOpen(false);
         setXrayDismissed(false);
-      } else if (!isLandscape && paused && hasSceneShop && !xrayDismissed) {
-        showControls();
-        setXraySheetOpen(true);
-      }
-    }, [paused, hasSceneShop, isLandscape, xrayDismissed, showControls]);
-
-    // Landscape only: close panel on play, auto-open when paused + products ready
-    useEffect(() => {
-      if (!paused) {
-        setLandscapePanelOpen(false);
-        setLandscapeDismissed(false);
-      }
-    }, [paused]);
-
-    useEffect(() => {
-      if (isLandscape && paused && hasSceneShop && !landscapeDismissed) {
-        setLandscapePanelOpen(true);
-        showControls();
-      }
-    }, [isLandscape, paused, hasSceneShop, landscapeDismissed, showControls]);
-
-    const openXRay = useCallback(() => {
-      if (!isLandscape) {
-        setXrayDismissed(false);
-        setXraySheetOpen(true);
-        clearHideTimer();
         return;
       }
-      setLandscapeDismissed(false);
-      setLandscapePanelOpen(true);
+      if (!xrayDismissed) {
+        setXrayOpen(true);
+        showControls();
+      }
+    }, [paused, xrayDismissed, showControls]);
+
+    /** Shop Here (or X-Ray pill): pause if playing, then open panel. */
+    const openXRay = useCallback(() => {
+      setXrayDismissed(false);
+      setXrayOpen(true);
       clearHideTimer();
+      showControls();
       if (!paused) {
         onPause?.();
       }
-    }, [isLandscape, paused, clearHideTimer, onPause]);
+    }, [paused, onPause, clearHideTimer, showControls]);
 
     const closeXRay = useCallback(() => {
       setXrayDismissed(true);
-      setXraySheetOpen(false);
-      scheduleAutoHide();
-    }, [scheduleAutoHide]);
-
-    const dismissLandscapePanel = useCallback(() => {
-      setLandscapeDismissed(true);
-      setLandscapePanelOpen(false);
+      setXrayOpen(false);
       scheduleAutoHide();
     }, [scheduleAutoHide]);
 
@@ -466,14 +441,14 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           <View
             style={[
               styles.mainRow,
-              showLandscapeRail && styles.mainRowSplit,
+              showLandscapeXRay && styles.mainRowSplit,
             ]}
             pointerEvents={isPip ? "none" : "auto"}
           >
             <View
               style={[
                 styles.videoStage,
-                showLandscapeRail && styles.videoStageSplit,
+                showLandscapeXRay && styles.videoStageSplit,
               ]}
             >
               <Video
@@ -637,10 +612,10 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
               )}
             </View>
 
-            {showLandscapeRail && !isPip && (
+            {showLandscapeXRay && !isPip && (
               <XRaySidePanel
                 sceneProducts={sceneProducts}
-                onClose={dismissLandscapePanel}
+                onClose={closeXRay}
               />
             )}
           </View>
@@ -673,7 +648,7 @@ const Player = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
                 sceneProducts={sceneProducts}
                 isLandscape={false}
                 controlsOpacity={controlsOpacity}
-                sheetOpen={xraySheetOpen}
+                sheetOpen={showPortraitXRay}
                 onOpenSheet={openXRay}
                 onCloseSheet={closeXRay}
               />
