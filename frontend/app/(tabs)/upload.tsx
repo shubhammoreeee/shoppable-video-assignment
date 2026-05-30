@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import * as DocumentPicker from "expo-document-picker";
+import { BASE_URL } from "../../../shoppableOTT/src/shared/constants/config";
 
 type ProductType = {
   name: string;
@@ -190,7 +191,7 @@ export default function UploadScreen() {
       const response =
         await fetch(
 
-          "http://192.168.29.235:5000/create-video",
+          `${BASE_URL}/create-video`,
 
           {
             method: "POST",

@@ -23,6 +23,8 @@ import {
   useLocalSearchParams,
 } from "expo-router";
 
+import { BASE_URL } from "../../../shoppableOTT/src/shared/constants/config";
+
 type ProductType = {
   id: number;
   videoId: string;
@@ -87,7 +89,7 @@ export default function VideoScreen() {
 
       const response =
         await fetch(
-          "http://192.168.29.235:5000/pause",
+          `${BASE_URL}/pause`,
           {
             method: "POST",
 

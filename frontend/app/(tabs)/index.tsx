@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { router } from "expo-router";
+import { BASE_URL } from "../../../shoppableOTT/src/shared/constants/config";
 
 type VideoType = {
 
@@ -33,7 +34,7 @@ export default function HomeScreen() {
 
         const response =
           await fetch(
-            "http://192.168.29.235:5000/videos"
+            `${BASE_URL}/videos`
           );
 
         const data =

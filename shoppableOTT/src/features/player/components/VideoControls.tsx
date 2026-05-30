@@ -13,6 +13,7 @@ import Slider from "@react-native-community/slider";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
+import { BASE_URL } from "../../../shared/constants/config";
 
 // ───────────────────────────────── constants ─────────────────────────────────
 const SEEK_AMOUNT = 10;
@@ -188,13 +189,13 @@ const VideoControls = ({
           name: "Tshirt",
           role: "Kalapalatha - Tshirt",
           price: "₹ 299",
-          image: "http://192.168.29.235:5000/product_images/1779536590566.jpg",
+          image:  `${BASE_URL}/product_images/1779536590566.jpg`,
         }
       : {
           name: "Plant",
           role: "Decor - Plant",
           price: "₹ 200",
-          image: "http://192.168.29.235:5000/product_images/1779536590596.jpg",
+          image: `${BASE_URL}/product_images/1779536590596.jpg`,
         };
 
   return (
